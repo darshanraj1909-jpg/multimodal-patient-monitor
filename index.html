@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Patient Monitor</title>
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --safe: #10b981;
+            --warning: #f59e0b;
+            --alert: #ef4444;
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #020617 100%);
+            color: var(--text-main);
+            margin: 0;
+            padding: 2rem;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Header Layout */
+        .header {
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 1rem;
+        }
+
+        h1 { margin: 0; font-weight: 600; font-size: 1.8rem; letter-spacing: 0.5px; }
+
+        /* Status Indicator in Header */
+        .system-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            background: rgba(30, 41, 59, 0.5);
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 1px solid #334155;
+        }
+        
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #64748b;
+        }
+
+        .dot.active { background-color: var(--safe); animation: pulse-dot 2s infinite; }
+
+        .dashboard-container {
+            display: flex;
+            gap: 24px;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        /* Left Side: Video Feed */
+        .video-section {
+            flex: 2;
+            background: var(--card-bg);
+            padding: 1rem;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            border: 1px solid #334155;
+            display: flex;
+            flex-direction: column;
+            transition: box-shadow 0.3s ease;
+        }
+
+        .video-wrapper {
+            position: relative;
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #000;
+        }
+
+        video {
+            width: 100%;
+            height: auto;
+            display: block;
+            transform: scaleX(-1); /* Mirror view */
+            opacity: 0.8;
+            transition: opacity 0.5s ease;
+        }
+
+        video.active { opacity: 1; }
+
+        /* Right Side: Data Cards */
+        .controls-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .status-card {
+            background: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            border: 1px solid #334155;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .status-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 4px; height: 100%;
+            background: #475569;
+            transition: background 0.3s ease;
+        }
+
+        .status-card h2 {
+            margin: 0 0 0.5rem 0;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .status-value {
+            font-size: 1.6rem;
+            font-weight: 600;
+            margin: 0;
+            transition: color 0.3s ease;
+        }
+
+        /* Card Dynamic States */
+        .status-card.state-safe::before { background: var(--safe); }
+        .status-card.state-safe .status-value { color: var(--safe); }
+
+        .status-card.state-warning::before { background: var(--warning); }
+        .status-card.state-warning .status-value { color: var(--warning); }
+
+        .status-card.state-alert {
+            animation: pulse-card 1.2s infinite;
+            border-color: var(--alert);
+        }
+        .status-card.state-alert::before { background: var(--alert); }
+        .status-card.state-alert .status-value { color: var(--alert); }
+
+        /* Buttons */
+        .btn-group { margin-top: 1rem; display: flex; gap: 12px; }
+
+        button {
+            flex: 1;
+            padding: 14px 24px;
+            font-size: 1rem;
+            font-weight: 600;
+            color: white;
+            background: var(--primary);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        button:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4); }
+        button:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
+        
+        #stopBtn { background: #334155; }
+        #stopBtn:hover:not(:disabled) { background: var(--alert); box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4); }
+
+        /* Animations */
+        @keyframes pulse-dot {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        @keyframes pulse-card {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            50% { box-shadow: 0 0 20px 5px rgba(239, 68, 68, 0.2); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Patient Monitoring AI</h1>
+        <div class="system-status">
+            <div class="dot" id="connectionDot"></div>
+            <span id="connectionText">System Offline</span>
+        </div>
+    </div>
+
+    <div class="dashboard-container">
+        <!-- Live Video Feed -->
+        <div class="video-section" id="videoContainer">
+            <div class="video-wrapper">
+                <video id="webcam" autoplay muted playsinline></video>
+            </div>
+            <div class="btn-group">
+                <button id="startBtn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                    Start Monitoring
+                </button>
+                <button id="stopBtn" disabled>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>
+                    Stop Stream
+                </button>
+            </div>
+        </div>
+
+        <!-- Dashboard Panel -->
+        <div class="controls-section">
+            
+            <div class="status-card" id="fireCard">
+                <h2>Fire & Smoke Detection</h2>
+                <p class="status-value" id="fireStatus">Awaiting Data...</p>
+            </div>
+
+            <div class="status-card" id="postureCard">
+                <h2>Patient Posture</h2>
+                <p class="status-value" id="postureStatus">Awaiting Data...</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Hidden canvas for processing frames -->
+    <canvas id="hiddenCanvas" style="display:none;"></canvas>
+
+    <script>
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('hiddenCanvas');
+        const context = canvas.getContext('2d');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const connectionDot = document.getElementById('connectionDot');
+        const connectionText = document.getElementById('connectionText');
+        const videoContainer = document.getElementById('videoContainer');
+
+        // Card Elements
+        const fireCard = document.getElementById('fireCard');
+        const fireStatusText = document.getElementById('fireStatus');
+        const postureCard = document.getElementById('postureCard');
+        const postureStatusText = document.getElementById('postureStatus');
+
+        let ws;
+        let stream;
+        let inferenceInterval;
+
+        async function startMonitoring() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+                video.srcObject = stream;
+                video.classList.add('active');
+
+                canvas.width = 640;
+                canvas.height = 480;
+
+                ws = new WebSocket("ws://localhost:8000/ws/inference");
+
+                ws.onopen = () => {
+                    updateUIState(true);
+                    inferenceInterval = setInterval(captureAndSendFrame, 500); // 2 frames per second
+                };
+
+                ws.onmessage = (event) => {
+                    const results = JSON.parse(event.data);
+                    updateResultsGUI(results);
+                };
+
+                ws.onclose = () => stopMonitoring();
+                ws.onerror = () => stopMonitoring();
+
+            } catch (err) {
+                alert("Camera access denied or unavailable.");
+            }
+        }
+
+        function stopMonitoring() {
+            updateUIState(false);
+            if (inferenceInterval) clearInterval(inferenceInterval);
+            if (ws) ws.close();
+            if (stream) stream.getTracks().forEach(track => track.stop());
+            
+            video.srcObject = null;
+            video.classList.remove('active');
+            
+            // Reset Cards
+            fireCard.className = "status-card";
+            postureCard.className = "status-card";
+            fireStatusText.innerText = "Awaiting Data...";
+            postureStatusText.innerText = "Awaiting Data...";
+        }
+
+        function captureAndSendFrame() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.6); // Compress to 60% for speed
+                ws.send(dataUrl);
+            }
+        }
+
+        function updateResultsGUI(results) {
+            // Update Text (Capitalize first letter)
+            fireStatusText.innerText = results.fire_smoke;
+            
+            // Capitalize posture string for better aesthetics (e.g. "sleeping on bed" -> "Sleeping on bed")
+            postureStatusText.innerText = results.posture.charAt(0).toUpperCase() + results.posture.slice(1);
+
+            // Handle Fire Card Classes (Safe / Warning / Alert)
+            fireCard.className = "status-card"; // Reset
+            if (results.fire_alert === "alert") {
+                fireCard.classList.add("state-alert");
+                videoContainer.style.boxShadow = "0 0 30px rgba(239, 68, 68, 0.4)"; // Red glow on video
+            } else if (results.fire_smoke.toLowerCase().includes("smoke")) {
+                fireCard.classList.add("state-warning");
+                videoContainer.style.boxShadow = "0 10px 25px rgba(0,0,0,0.5)"; // Default shadow
+            } else {
+                fireCard.classList.add("state-safe");
+                videoContainer.style.boxShadow = "0 10px 25px rgba(0,0,0,0.5)";
+            }
+
+            // Handle Posture Card Classes
+            postureCard.className = "status-card"; // Reset
+            if (results.posture_alert === "alert") {
+                postureCard.classList.add("state-alert");
+            } else {
+                postureCard.classList.add("state-safe");
+            }
+        }
+
+        function updateUIState(isRunning) {
+            startBtn.disabled = isRunning;
+            stopBtn.disabled = !isRunning;
+            
+            if (isRunning) {
+                connectionDot.classList.add('active');
+                connectionText.innerText = "System Active & Monitoring";
+                connectionText.style.color = "var(--safe)";
+            } else {
+                connectionDot.classList.remove('active');
+                connectionText.innerText = "System Offline";
+                connectionText.style.color = "var(--text-muted)";
+                videoContainer.style.boxShadow = "0 10px 25px rgba(0,0,0,0.5)";
+            }
+        }
+
+        startBtn.addEventListener('click', startMonitoring);
+        stopBtn.addEventListener('click', stopMonitoring);
+
+    </script>
+</body>
+</html>
