@@ -1,4 +1,4 @@
-# Multimodal AI Patient Monitor
+# Multimodal  Patient Monitoring System with Hazard Detection
 
 A real-time, browser-based dashboard for intelligent patient monitoring. This system captures live video from a standard webcam, streams it over WebSockets to a FastAPI backend, and uses Ultralytics YOLO models to instantly detect patient posture and environmental hazards (fire/smoke).
 
